@@ -71,7 +71,7 @@ HDD::HDD(uint32 surfaces, uint32 tracks_per_surface,
   //
   // print info
   //
-  cout.precision(6);
+  cout.precision(3);
   double cap = (double)total_sectors * _sector_size / 1000000000.0;
   cout << "HDD: " << endl
        << "  surfaces:                  " << _surfaces << endl
@@ -81,7 +81,7 @@ HDD::HDD(uint32 surfaces, uint32 tracks_per_surface,
        << "  rpm:                       " << rpm << endl
        << "  sector size:               " << _sector_size << endl
 	   << "  number of sectors total:   " << total_sectors << endl
-	   << "  capacity (GB):             " << cap << endl
+	   << "  capacity (GB):             " << dec << fixed << cap << endl
        << endl;
 }
 
@@ -100,7 +100,7 @@ double HDD::read(double ts, uint64 address, uint64 size)
 {
   // TODO
 	HDD_Position pos;
-	uint64 num_sector = ((address+size)/_sector_size) - (address/_sector_size) + 1;
+	uint64 num_sector = ((address+size-1)/_sector_size) - (address/_sector_size) + 1;
 	double end_time = ts;
 	while(num_sector > 0){
 		decode(address, &pos);
@@ -119,7 +119,7 @@ double HDD::write(double ts, uint64 address, uint64 size)
 {
   // TODO
 	HDD_Position pos;
-	uint64 num_sector = ((address+size)/_sector_size) - (address/_sector_size) + 1;
+	uint64 num_sector = ((address+size-1)/_sector_size) - (address/_sector_size) + 1;
 	double end_time = ts;
 	while(num_sector > 0){
 		decode(address, &pos);
@@ -171,21 +171,21 @@ double HDD::write_time(uint64 sectors)
 bool HDD::decode(uint64 address, HDD_Position *pos)
 {
   // TODO
+	address /= _sector_size;
 	for(uint32 track = 0; track<tracks_per_sf;track++){
-		uint64 bytes = (uint64)_sector_size * _surfaces * num_of_sector(track);
-		if(address < bytes){
-			uint64 bytes_per_sf = (uint64)_sector_size * num_of_sector(track);
-			pos -> surface = address / bytes_per_sf;
+		uint64 sectors = (uint64) _surfaces * num_of_sector(track);
+		if(address < sectors){
+			pos -> surface = address / num_of_sector(track);
 			pos -> track = track;
-			address %= bytes_per_sf;
-			pos -> sector = address / _sector_size;
+			address %= num_of_sector(track);
+			pos -> sector = address;
 			pos -> max_access = (num_of_sector(track) - pos->sector) +
 												(_surfaces - pos->surface - 1) * num_of_sector(track);
 
 			return true;
 		}
 		else{
-			address -= bytes;
+			address -= sectors;
 		}
 	}
   return false;
