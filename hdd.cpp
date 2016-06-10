@@ -80,20 +80,22 @@ HDD::~HDD(void)
 double HDD::read(double ts, uint64 address, uint64 size)
 {
   // TODO
-	decode(address, HDD_Position);
-	double end_time = ts + seek_time(_head_pos, HDD_Position->track)
-										+ wait_time() + read_time(num_of_sector(HDD_Position->track));
-	_head_pos = HDD_Position->track;
+	HDD_Position pos;
+	decode(address, &pos);
+	double end_time = ts + seek_time(_head_pos, pos.track)
+						+ wait_time() + read_time(num_of_sector(pos.track));
+	_head_pos = pos.track;
 	return end_time;
 }
 
 double HDD::write(double ts, uint64 address, uint64 size)
 {
   // TODO
-	decode(address, HDD_Position);
-	double end_time = ts + seek_time(_head_pos, HDD_Position->track)
-										+ wait_time() + write_time(num_of_sector(HDD_Position->track));
-	_head_pos = HDD_Position->track;
+	HDD_Position pos;
+	decode(address, &pos);
+	double end_time = ts + seek_time(_head_pos, pos.track)
+						+ wait_time() + write_time(num_of_sector(pos.track));
+	_head_pos = pos.track;
 	return end_time;
 }
 
