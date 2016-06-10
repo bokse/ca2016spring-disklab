@@ -56,7 +56,18 @@ HDD::HDD(uint32 surfaces, uint32 tracks_per_surface,
   // TODO
 	inner = sectors_innermost_track;
 	outer = sectors_outermost_track;
+	_head_pos = 0;
+	if(outer < inner){
+		cout << "invalid surface shape" << endl;
+	}
+	if(_rpm == 0){
+		cout << "invalid rpm : rpm equals to zero" << endl;
+	}
 	tracks_per_sf = tracks_per_surface;
+	uint64 total_tracks = 0;
+	for(uint32 track=0; track<tracks_per_surface;track++){
+		total_tracks += num_of_sector(track) * _surfaces;
+	}
   //
   // print info
   //
@@ -68,6 +79,7 @@ HDD::HDD(uint32 surfaces, uint32 tracks_per_surface,
        << "  sect on outermost track:   " << sectors_outermost_track << endl
        << "  rpm:                       " << rpm << endl
        << "  sector size:               " << _sector_size << endl
+	   << "  number of sectors total:   " << total_tracks << endl
        << endl;
 }
 
@@ -77,14 +89,27 @@ HDD::~HDD(void)
 	cout << "HDD removed" << endl;
 }
 
+uint64 min(uint64 a,uint64 b){
+	if(a<b)return a;
+	return b;
+}
+
 double HDD::read(double ts, uint64 address, uint64 size)
 {
   // TODO
 	HDD_Position pos;
-	decode(address, &pos);
-	double end_time = ts + seek_time(_head_pos, pos.track)
-						+ wait_time() + read_time(num_of_sector(pos.track));
-	_head_pos = pos.track;
+	uint64 num_sector = ((address+size)/_sector_size) - (address/_sector_size) + 1;
+	double end_time = ts;
+	while(num_sector > 0){
+		decode(address, &pos);
+		end_time += seek_time(_head_pos, pos.track);
+		_head_pos = pos.track;
+		end_time += wait_time();
+		uint64 access_sectors = min(num_sector, pos.max_access);
+		num_sector -= access_sectors;
+		end_time += read_time(access_sectors);
+		address += (uint64)access_sectors * _sector_size;
+	}
 	return end_time;
 }
 
@@ -92,10 +117,18 @@ double HDD::write(double ts, uint64 address, uint64 size)
 {
   // TODO
 	HDD_Position pos;
-	decode(address, &pos);
-	double end_time = ts + seek_time(_head_pos, pos.track)
-						+ wait_time() + write_time(num_of_sector(pos.track));
-	_head_pos = pos.track;
+	uint64 num_sector = ((address+size)/_sector_size) - (address/_sector_size) + 1;
+	double end_time = ts;
+	while(num_sector > 0){
+		decode(address, &pos);
+		end_time += seek_time(_head_pos, pos.track);
+		_head_pos = pos.track;
+		end_time += wait_time();
+		uint64 access_sectors = min(num_sector, pos.max_access);
+		num_sector -= access_sectors;
+		end_time += write_time(access_sectors);
+		address += (uint64)access_sectors * _sector_size;
+	}
 	return end_time;
 }
 
@@ -115,19 +148,21 @@ double HDD::seek_time(uint32 from_track, uint32 to_track)
 double HDD::wait_time(void)
 {
   // TODO
-  return 0.0;
+	return 30.0 / _rpm;
 }
 
 double HDD::read_time(uint64 sectors)
 {
   // TODO
-	return 60.0 / _rpm / sectors;
+//	return 60.0 / _rpm * sectors / ((inner+outer)/2);
+	return 60.0 / _rpm * sectors / (num_of_sector(_head_pos));
 }
 
 double HDD::write_time(uint64 sectors)
 {
   // TODO
-	return 60.0 / _rpm / sectors;
+//	return 60.0 / _rpm * sectors / ((inner+outer)/2);
+	return 60.0 / _rpm * sectors / num_of_sector(_head_pos);
 }
 
 bool HDD::decode(uint64 address, HDD_Position *pos)
@@ -141,12 +176,13 @@ bool HDD::decode(uint64 address, HDD_Position *pos)
 			pos -> track = track;
 			address %= bytes_per_sf;
 			pos -> sector = address / _sector_size;
-			// what is max_access?
+			pos -> max_access = (num_of_sector(track) - pos->sector) +
+												(_surfaces - pos->surface - 1) * num_of_sector(track);
 
 			return true;
 		}
 		else{
-				address -= bytes;
+			address -= bytes;
 		}
 	}
   return false;
