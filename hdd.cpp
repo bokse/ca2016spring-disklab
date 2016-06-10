@@ -64,14 +64,15 @@ HDD::HDD(uint32 surfaces, uint32 tracks_per_surface,
 		cout << "invalid rpm : rpm equals to zero" << endl;
 	}
 	tracks_per_sf = tracks_per_surface;
-	uint64 total_tracks = 0;
+	uint64 total_sectors = 0;
 	for(uint32 track=0; track<tracks_per_surface;track++){
-		total_tracks += num_of_sector(track) * _surfaces;
+		total_sectors += num_of_sector(track) * _surfaces;
 	}
   //
   // print info
   //
-  cout.precision(3);
+  cout.precision(6);
+  double cap = (double)total_sectors * _sector_size / 1000000000.0;
   cout << "HDD: " << endl
        << "  surfaces:                  " << _surfaces << endl
        << "  tracks/surface:            " << tracks_per_surface << endl
@@ -79,7 +80,8 @@ HDD::HDD(uint32 surfaces, uint32 tracks_per_surface,
        << "  sect on outermost track:   " << sectors_outermost_track << endl
        << "  rpm:                       " << rpm << endl
        << "  sector size:               " << _sector_size << endl
-	   << "  number of sectors total:   " << total_tracks << endl
+	   << "  number of sectors total:   " << total_sectors << endl
+	   << "  capacity (GB):             " << cap << endl
        << endl;
 }
 
@@ -135,6 +137,7 @@ double HDD::write(double ts, uint64 address, uint64 size)
 double HDD::seek_time(uint32 from_track, uint32 to_track)
 {
   // TODO
+	if(from_track == to_track) return 0.0;
 	uint32 diff;
 	if(from_track < to_track){
 		diff = to_track - from_track;
